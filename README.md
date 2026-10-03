@@ -1,4 +1,4 @@
-# 500-Scratchcard: 3×3 Symbol Match game engine
+# 500 unit -Scratchcard: 3×3 Symbol Match game engine 75% RTP
 
 This is a TypeScript game engine for the **3×3 Symbol Match** instant game. It follows GLI-19 and is built from the approved Par Sheet (`par_sheet_3x3_symbol_match.xlsx`), the Game Specification, the Game Developer Specification and the Developer Action List.
 
