@@ -1,0 +1,27 @@
+{
+  "name": "scratchcard-3x3-engine",
+  "version": "1.0.0",
+  "description": "GLI-19 aligned game engine for the 3x3 Symbol Match instant game, driven by an external certified RNG result string.",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "files": [
+    "dist/src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test dist/test/*.test.js",
+    "simulate": "npm run build && node dist/scripts/simulate.js",
+    "batch": "npm run build && node dist/scripts/generateBatch.js",
+    "demo": "npm run build && npx --yes http-server -c-1 -p 8080 ."
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3"
+  }
+}

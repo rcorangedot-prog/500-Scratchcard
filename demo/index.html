@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3×3 Symbol Match — Engine Demo UX</title>
+<style>
+:root{
+  --bg:#f3f5f8; --card:#fff; --text:#131c26; --muted:#5c6773; --line:#e2e6eb;
+  --navy:#0e1b29; --steel:#2e75b6; --green:#1e8449; --green-bg:#e3f5ea; --red:#c0392b; --red-bg:#fbe8e6;
+  --gold-bg:#fcefc7; --gold:#8a5a00; --cover:#8b93a1;
+  --mono:ui-monospace,SFMono-Regular,Consolas,monospace; --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#0f1620; --card:#17212d; --text:#e6edf3; --muted:#9aa7b4; --line:#26323f;
+    --green-bg:#173b27; --red-bg:#3b1a17; --gold-bg:#3a2e10; --gold:#f4d27a; --cover:#4a5563; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans)}
+header{background:var(--navy);color:#fff;padding:18px 16px}
+header h1{margin:0;font-size:20px}
+header p{margin:4px 0 0;color:#b9c7d6;font-size:13px}
+.warn{background:#c98a1f22;border:1px solid #c98a1f88;color:inherit;border-radius:8px;padding:8px 12px;font-size:12.5px;margin-top:10px}
+main{max-width:1100px;margin:0 auto;padding:16px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:820px){main{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+h2{font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:330px;margin:0 auto}
+.cell{aspect-ratio:1;border:none;border-radius:10px;font-size:34px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:repeating-linear-gradient(45deg,var(--cover),var(--cover) 6px,#9aa2ae 6px,#9aa2ae 12px);color:#fff;cursor:pointer;transition:transform .2s}
+.cell:disabled{cursor:default}
+.cell.revealed{background:var(--card);border:2px solid var(--line);color:var(--text)}
+.cell.win{border-color:var(--green);box-shadow:0 0 0 3px var(--green-bg)}
+.cell small{font-size:10px;color:var(--muted);margin-top:2px}
+.cell:not(.revealed):not(:disabled):hover{transform:scale(1.03)}
+.banner{margin:14px 0;padding:10px 12px;border-radius:8px;font-weight:600;min-height:42px;background:var(--line)}
+.banner.win{background:var(--green-bg);color:var(--green)}
+.banner.top{background:var(--gold-bg);color:var(--gold)}
+.banner.err{background:var(--red-bg);color:var(--red)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button.btn{font:inherit;font-weight:600;border:none;border-radius:8px;padding:10px 14px;background:var(--steel);color:#fff;cursor:pointer}
+button.btn.sec{background:var(--line);color:var(--text)}
+button.btn:disabled{opacity:.45;cursor:not-allowed}
+.bal{font-family:var(--mono);margin-left:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--muted);font-weight:600}
+.log{font-family:var(--mono);font-size:11.5px;max-height:420px;overflow:auto;background:var(--bg);border-radius:8px;padding:8px;white-space:pre-wrap;word-break:break-word}
+.log div{padding:4px 0;border-bottom:1px dashed var(--line)}
+.log b{color:var(--steel)}
+.muted{color:var(--muted);font-size:12.5px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<header>
+  <h1>3×3 Symbol Match — Engine Demo UX</h1>
+  <p>This page is a thin presentation layer. Every symbol, result and message below comes from engine <code>UxMessage</code>s.</p>
+  <div class="warn"><b>Demo only.</b> Uses the browser CSPRNG via <code>DevCryptoRngProvider</code> (uncertified) and play money. Reload mid-ticket to see interrupted-game recovery.</div>
+</header>
+<main>
+  <section class="card">
+    <h2>Ticket</h2>
+    <div class="grid" id="grid" role="grid" aria-label="Scratch panels"></div>
+    <div class="banner" id="banner" aria-live="polite">Loading…</div>
+    <div class="row">
+      <button class="btn" id="buy">Buy ticket</button>
+      <button class="btn sec" id="revealAll" disabled>Reveal all</button>
+      <button class="btn sec" id="reset" title="Clear saved state and balance">Reset demo</button>
+      <span class="bal" id="balance"></span>
+    </div>
+    <div class="sr" id="sr" aria-live="assertive"></div>
+    <h2 style="margin-top:18px">Paytable</h2>
+    <table id="paytable"><thead><tr><th>Symbol</th><th>Prize</th><th>Odds</th></tr></thead><tbody></tbody></table>
+    <p class="muted" id="rulesNotes"></p>
+  </section>
+  <section class="card">
+    <h2>Engine → UX message stream</h2>
+    <div class="log" id="log"></div>
+    <h2 style="margin-top:18px">Game recall (last 10)</h2>
+    <table id="history"><thead><tr><th>Serial</th><th>Grid</th><th>Result</th></tr></thead><tbody></tbody></table>
+  </section>
+</main>
+
+<script type="module">
+import {
+  ScratchcardEngine, DevCryptoRngProvider, InMemoryWallet,
+} from '../dist/src/index.js';
+
+// UX-side asset map: iconRef → artwork (Dev Spec §9: icons resolved from iconRef, not hardcoded per symbol).
+const ICONS = {
+  'icon.cherry':'🍒','icon.bell':'🔔','icon.clover':'🍀','icon.star':'⭐','icon.horseshoe':'🧲',
+  'icon.diamond':'💎','icon.crown':'👑','icon.wild7':'7️⃣','icon.jackpot_coin':'🪙',
+};
+const KEY = 'sc3x3-demo-state', WKEY = 'sc3x3-demo-wallet';
+const safeGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const safeSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+
+// Persistence hook backed by localStorage → enables recovery across reloads.
+const persistence = {
+  async load(){ const s = safeGet(KEY); return s ? JSON.parse(s) : null; },
+  async save(snap){ safeSet(KEY, JSON.stringify(snap)); },
+};
+// Wallet hook: InMemoryWallet whose balance is mirrored to localStorage.
+const wallet = new InMemoryWallet(Number(safeGet(WKEY) ?? 2000));
+for (const op of ['debit','credit','refund']) {
+  const f = wallet[op].bind(wallet);
+  wallet[op] = async (tx) => { const r = await f(tx); safeSet(WKEY, String(wallet.balanceCents)); return r; };
+}
+
+const $ = (id) => document.getElementById(id);
+const fmt = (c) => '$' + (c/100).toFixed(2);
+const cells = [];
+for (let i = 0; i < 9; i++) {
+  const b = document.createElement('button');
+  b.className = 'cell'; b.disabled = true;
+  b.setAttribute('aria-label', `Panel ${i+1}, hidden`);
+  b.addEventListener('click', () => engine.revealCell(i));
+  $('grid').appendChild(b); cells.push(b);
+}
+function resetGrid(enabled){
+  cells.forEach((c,i) => { c.className='cell'; c.innerHTML=''; c.disabled=!enabled; c.setAttribute('aria-label',`Panel ${i+1}, hidden`); });
+}
+function showCell(cell){
+  const c = cells[cell.index];
+  c.classList.add('revealed'); c.disabled = true;
+  c.innerHTML = `${ICONS[cell.iconRef] ?? cell.symbol}<small>${cell.symbolName}</small>`;
+  c.setAttribute('aria-label', `Panel ${cell.index+1}: ${cell.symbolName}`);
+}
+function banner(text, kind=''){ $('banner').textContent = text; $('banner').className = 'banner ' + kind; }
+function setPlaying(p){ $('buy').disabled = p; $('revealAll').disabled = !p; }
+
+// ---- the UX's single entry point: render engine messages ----
+function onMessage(m){
+  const line = document.createElement('div');
+  line.innerHTML = `<b>#${m.seq} ${m.type}</b>  ${m.cue ?? ''}\n${JSON.stringify(m.payload)}`;
+  $('log').prepend(line);
+  $('sr').textContent = m.a11y;
+
+  switch (m.type) {
+    case 'ENGINE_READY': banner(m.text); setPlaying(false); break;
+    case 'TICKET_PURCHASED':
+      resetGrid(true); setPlaying(true); banner(m.text);
+      if (m.payload.balanceCents != null) $('balance').textContent = 'Balance ' + fmt(m.payload.balanceCents);
+      break;
+    case 'GAME_RECOVERED':
+      resetGrid(true); m.payload.revealedCells.forEach(showCell); setPlaying(!m.payload.awaitingSettlement); banner(m.text);
+      break;
+    case 'CELL_REVEALED': showCell(m.payload); break;
+    case 'RESULT_WIN':
+      m.payload.winningCells.forEach(i => cells[i].classList.add('win'));
+      banner(m.text, m.payload.winLevel === 'TOP_PRIZE' ? 'top' : m.payload.winLevel === 'PARTIAL_RETURN' ? '' : 'win');
+      break;
+    case 'RESULT_NO_WIN': banner(m.text); break;
+    case 'PRIZE_CREDITED': if (m.payload.balanceCents != null) $('balance').textContent = 'Balance ' + fmt(m.payload.balanceCents); break;
+    case 'GAME_COMPLETE': setPlaying(false); renderHistory(); break;
+    case 'SETTLEMENT_PENDING': banner(m.text, 'err'); break;
+    case 'INSUFFICIENT_FUNDS': case 'MALFUNCTION': banner(m.text, 'err'); setPlaying(false); renderHistory(); break;
+  }
+}
+
+const engine = new ScratchcardEngine({
+  rng: new DevCryptoRngProvider('DEV-BROWSER-CSPRNG'),
+  requireCertifiedRng: false, // demo only — production must use a certified RNG provider
+  persistence, wallet, onMessage,
+});
+
+function renderHistory(){
+  const tb = $('history').querySelector('tbody'); tb.innerHTML = '';
+  for (const g of engine.getHistory()) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td style="font-family:var(--mono);font-size:11px">${g.ticketSerial || '—'}</td>
+      <td style="font-family:var(--mono)">${g.grid ? g.grid.join('') : '—'}</td>
+      <td>${g.status === 'VOID' ? 'VOID' : g.prizeCents ? fmt(g.prizeCents) + ' (' + g.winningSymbol + ')' : 'No win'}</td>`;
+    tb.appendChild(tr);
+  }
+}
+function renderRules(){
+  const r = engine.getRules();
+  const tb = $('paytable').querySelector('tbody');
+  for (const p of r.paytable)
+    tb.insertAdjacentHTML('beforeend', `<tr><td>${ICONS[p.iconRef]} ${p.name}</td><td>${p.prize}</td><td>${p.odds}</td></tr>`);
+  tb.insertAdjacentHTML('beforeend', `<tr><th>Any prize</th><th>RTP ${r.returnToPlayer}</th><th>${r.overallOdds}</th></tr>`);
+  $('rulesNotes').textContent = r.howToPlay.join(' ') + ' ' + r.notes.join(' ');
+}
+
+$('buy').addEventListener('click', () => engine.buyTicket({ playerId: 'demo-player' }));
+$('revealAll').addEventListener('click', () => engine.revealAll());
+$('reset').addEventListener('click', () => { try { localStorage.removeItem(KEY); localStorage.removeItem(WKEY); } catch {} location.reload(); });
+
+renderRules();
+$('balance').textContent = 'Balance ' + fmt(wallet.balanceCents);
+await engine.start();
+renderHistory();
+window.engine = engine; // for poking at from the console
+</script>
+</body>
+</html>

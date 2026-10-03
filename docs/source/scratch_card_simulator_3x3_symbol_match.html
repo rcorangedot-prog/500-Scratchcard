@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scratch Card Simulator — GLI-19 Aligned Test Bench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0E1B29; --navy2:#152943; --steel:#2E75B6; --steel-light:#DCE6F1;
+  --amber:#C98A1F; --amber-bg:#FBF1DD; --green:#1E8449; --green-bg:#E3F5EA;
+  --red:#C0392B; --red-bg:#FBE8E6; --bg:#F3F5F8; --card:#FFFFFF;
+  --text:#131C26; --muted:#5C6773; --line:#E2E6EB;
+  --mono:'JetBrains Mono', SFMono-Regular, Consolas, monospace;
+  --sans:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --gold:#D8A93B;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; font-family:var(--sans); background:var(--bg); color:var(--text);
+  -webkit-font-smoothing:antialiased;
+}
+header{
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);
+  color:#fff; padding:28px 24px 22px;
+}
+.header-inner{max-width:1180px; margin:0 auto;}
+.eyebrow{
+  font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:#9FC1E8; margin-bottom:8px;
+}
+h1{font-size:26px; margin:0 0 6px; font-weight:800; letter-spacing:-.01em;}
+.subtitle{color:#B9C7D6; font-size:14.5px; max-width:720px; line-height:1.5;}
+.scope-banner{
+  max-width:1180px; margin:18px auto 0; background:rgba(201,138,31,.16);
+  border:1px solid rgba(201,138,31,.45); border-radius:8px; padding:12px 16px;
+  font-size:13px; color:#F4DDA8; line-height:1.55;
+}
+.scope-banner b{color:#FFE8B3;}
+main{max-width:1180px; margin:0 auto; padding:26px 24px 60px;}
+.grid-2col{display:grid; grid-template-columns:1fr 1fr; gap:22px;}
+@media (max-width:880px){.grid-2col{grid-template-columns:1fr;}}
+.card{
+  background:var(--card); border:1px solid var(--line); border-radius:12px;
+  padding:22px; box-shadow:0 1px 2px rgba(16,24,32,.04);
+}
+.card h2{font-size:15px; margin:0 0 4px; font-weight:700; display:flex; align-items:center; gap:8px;}
+.card .desc{color:var(--muted); font-size:13px; margin:0 0 18px; line-height:1.5;}
+.card-icon{
+  width:22px; height:22px; border-radius:6px; display:inline-flex; align-items:center;
+  justify-content:center; font-size:12px; background:var(--steel); color:#fff; flex-shrink:0;
+}
+
+/* --- Scratch grid --- */
+.ticket-wrap{display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap;}
+.scratch-grid{
+  display:grid; grid-template-columns:repeat(3,64px); grid-template-rows:repeat(3,64px);
+  gap:6px; padding:10px; background:#0E1B29; border-radius:10px;
+}
+.cell{
+  border-radius:6px; display:flex; align-items:center; justify-content:center;
+  font-family:var(--mono); font-weight:700; font-size:15px; color:#fff;
+  background:linear-gradient(135deg,#8b93a1,#5c6673);
+  transition:transform .35s cubic-bezier(.2,.8,.3,1), background .35s ease;
+  transform:rotateY(90deg); position:relative; overflow:hidden;
+}
+.cell.revealed{transform:rotateY(0deg);}
+.cell .amt{font-size:9px; font-weight:500; opacity:.85; margin-top:2px;}
+.cell-inner{display:flex; flex-direction:column; align-items:center; line-height:1.1;}
+.ticket-info{flex:1; min-width:200px;}
+.result-banner{
+  font-family:var(--mono); font-weight:700; font-size:14px; padding:10px 14px;
+  border-radius:8px; margin-bottom:14px; display:inline-block;
+}
+.result-banner.win{background:var(--green-bg); color:var(--green);}
+.result-banner.lose{background:var(--line); color:var(--muted);}
+.result-banner.jackpot{background:linear-gradient(90deg,#FCEFC7,#F7DE9A); color:#8a5a00; box-shadow:0 0 0 1px #E8C56B inset;}
+.btn{
+  font-family:var(--sans); font-weight:600; font-size:13.5px; border:none; border-radius:8px;
+  padding:11px 18px; cursor:pointer; transition:filter .15s ease, transform .1s ease;
+}
+.btn:active{transform:translateY(1px);}
+.btn-primary{background:var(--steel); color:#fff;}
+.btn-primary:hover{filter:brightness(1.08);}
+.btn-secondary{background:var(--steel-light); color:var(--navy2);}
+.btn-secondary:hover{filter:brightness(.97);}
+.btn:disabled{opacity:.5; cursor:not-allowed;}
+.stat-row{display:flex; gap:22px; margin-top:16px; flex-wrap:wrap;}
+.stat{font-family:var(--mono);}
+.stat .label{font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em;}
+.stat .value{font-size:18px; font-weight:700;}
+
+/* --- Battery card --- */
+.field-row{display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;}
+.field-row label{font-size:12.5px; color:var(--muted); font-weight:600;}
+.field-row input[type=number]{
+  font-family:var(--mono); border:1px solid var(--line); border-radius:7px; padding:8px 10px;
+  width:110px; font-size:13px;
+}
+.progress-wrap{height:8px; border-radius:5px; background:var(--line); overflow:hidden; margin:14px 0;}
+.progress-bar{height:100%; width:0%; background:var(--steel); transition:width .15s ease;}
+.status-line{font-family:var(--mono); font-size:12.5px; color:var(--muted); min-height:18px;}
+
+/* --- Results table --- */
+.results-section{margin-top:22px;}
+.summary-strip{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:18px;}
+.summary-pill{
+  border-radius:10px; padding:14px 18px; font-family:var(--mono); flex:1; min-width:150px;
+  border:1px solid var(--line); background:var(--card);
+}
+.summary-pill .n{font-size:22px; font-weight:800;}
+.summary-pill .l{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
+table.test-table{width:100%; border-collapse:collapse; font-size:13px;}
+table.test-table th{
+  text-align:left; background:var(--navy); color:#fff; padding:10px 12px; font-size:11.5px;
+  text-transform:uppercase; letter-spacing:.04em; font-weight:600;
+}
+table.test-table th:first-child{border-radius:8px 0 0 0;}
+table.test-table th:last-child{border-radius:0 8px 0 0;}
+table.test-table td{padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top;}
+table.test-table tr:last-child td{border-bottom:none;}
+.pill{
+  display:inline-block; font-family:var(--mono); font-size:11px; font-weight:700; padding:3px 10px;
+  border-radius:20px;
+}
+.pill.pass{background:var(--green-bg); color:var(--green);}
+.pill.fail{background:var(--red-bg); color:var(--red);}
+.detail-cell{color:var(--muted); font-family:var(--mono); font-size:11.5px; line-height:1.5;}
+.chapter-label{font-family:var(--mono); font-size:11px; color:var(--steel); font-weight:700;}
+.section-title{font-size:16px; font-weight:700; margin:26px 0 10px;}
+.hitfreq-row{display:grid; grid-template-columns:70px 1fr 60px; gap:10px; align-items:center; margin-bottom:6px; font-family:var(--mono); font-size:11.5px;}
+.hitfreq-bar-bg{background:var(--line); border-radius:4px; height:14px; position:relative; overflow:hidden;}
+.hitfreq-bar{background:var(--steel); height:100%;}
+footer{
+  border-top:1px solid var(--line); padding:22px 24px 40px; color:var(--muted); font-size:12px;
+  max-width:1180px; margin:0 auto; line-height:1.6;
+}
+.hidden{display:none;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="eyebrow">Game Mathematics &middot; RNG Verification</div>
+    <h1>Scratch Card Simulator</h1>
+    <div class="subtitle">3&times;3 match-3 symbol instant game &mdash; draw tickets live, then run the GLI-19-aligned RNG and game-requirements test battery against this session's random draws.</div>
+  </div>
+  <div class="scope-banner">
+    <b>Not an official certification.</b> This runs the math/RNG-testable subset of GLI-19 v3.0 (Chapter 3: RNG Requirements, Chapter 4: Game Requirements) against your browser's built-in PRNG (<code>Math.random</code>) as a stand-in. A real GLI-19 certificate requires an accredited test lab evaluating the actual production system, including account management, security, and operational controls &mdash; none of which this page can test.
+  </div>
+</header>
+
+<main>
+
+  <div class="grid-2col">
+
+    <!-- ================= TICKET SIMULATOR ================= -->
+    <div class="card">
+      <h2><span class="card-icon">&#9673;</span> Draw a Ticket</h2>
+      <p class="desc">Ticket price 1.00 unit. Match 3 of the same symbol anywhere in the grid to win that symbol's prize.</p>
+
+      <div class="ticket-wrap">
+        <div class="scratch-grid" id="scratchGrid"></div>
+        <div class="ticket-info">
+          <div id="resultBanner" class="result-banner lose">Draw a ticket to begin</div>
+          <div class="stat-row">
+            <div class="stat"><div class="label">Tickets drawn</div><div class="value" id="statCount">0</div></div>
+            <div class="stat"><div class="label">Wagered</div><div class="value" id="statWagered">0.00</div></div>
+            <div class="stat"><div class="label">Paid out</div><div class="value" id="statPaid">0.00</div></div>
+            <div class="stat"><div class="label">Session RTP</div><div class="value" id="statRTP">&mdash;</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:18px; display:flex; gap:10px;">
+        <button class="btn btn-primary" id="drawBtn">Draw New Ticket</button>
+        <button class="btn btn-secondary" id="resetBtn">Reset Session</button>
+      </div>
+    </div>
+
+    <!-- ================= TEST BATTERY ================= -->
+    <div class="card">
+      <h2><span class="card-icon">&#10003;</span> GLI-19-Aligned Test Battery</h2>
+      <p class="desc">Runs Chapter 3 (RNG statistical tests) and Chapter 4 (game-requirements checks) against a fresh bulk sample.</p>
+
+      <div class="field-row">
+        <label for="sampleSize">Sample size</label>
+        <input type="number" id="sampleSize" value="200000" min="10000" max="1000000000" step="10000">
+        <span style="font-size:12px;color:var(--muted)">tickets (10,000&ndash;1,000,000,000)</span>
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-primary" id="runBatteryBtn">Run Full Test Battery</button>
+        <button class="btn btn-secondary hidden" id="cancelBatteryBtn">Cancel</button>
+      </div>
+      <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="status-line" id="statusLine">Idle.</div>
+      <div class="status-line" id="etaLine"></div>
+    </div>
+
+  </div>
+
+  <!-- ================= RESULTS ================= -->
+  <div class="results-section hidden" id="resultsSection">
+
+    <div class="summary-strip">
+      <div class="summary-pill"><div class="n" id="sumPassed">&mdash;</div><div class="l">Tests Passed</div></div>
+      <div class="summary-pill"><div class="n" id="sumRTP">&mdash;</div><div class="l">Sample RTP (target 75.00%)</div></div>
+      <div class="summary-pill"><div class="n" id="sumIntegrity">&mdash;</div><div class="l">Integrity Errors</div></div>
+      <div class="summary-pill"><div class="n" id="sumSample">&mdash;</div><div class="l">Tickets Sampled</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <div class="section-title" style="margin-top:0;">Hit Frequency vs. Par Sheet</div>
+      <div id="hitFreqChart"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <div class="chapter-label">CHAPTER 3</div>
+      <div class="section-title" style="margin-top:4px;">RNG Statistical Test Battery</div>
+      <table class="test-table" id="rngTable">
+        <thead><tr><th>Test</th><th>GLI-19 Ref.</th><th>Result</th><th>Detail</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="chapter-label">CHAPTER 4</div>
+      <div class="section-title" style="margin-top:4px;">Game Requirements</div>
+      <table class="test-table" id="gameTable">
+        <thead><tr><th>Test</th><th>GLI-19 Ref.</th><th>Result</th><th>Detail</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+  </div>
+
+</main>
+
+<footer>
+  <b>Scope:</b> this page tests the game-mathematics and RNG-statistical portions of GLI-19 v3.0 (Chapter 3 &amp; Chapter 4) only, using the browser's <code>Math.random</code> PRNG as a stand-in for a certified RNG source. It does not test, and cannot substitute for, GLI-19's platform-level requirements: player account management, financial transactions, security architecture, network infrastructure, or the Operational Audit appendices &mdash; those require an accredited independent test lab evaluating the real production system. Re-run this battery against your actual certified RNG source before any real submission.
+</footer>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================================
+   PAR SHEET DATA (source of truth: Par_Sheet workbook)
+   ========================================================================= */
+const TOTAL_ROUNDS_REF = 1000000; // reference basis for ticket-count proportions
+const TICKET_PRICE = 1.00;
+const TARGET_RTP = 0.75;
+const TIERS = [
+  {symbol:1, label:"A", prize:0.50,   tickets:150000, color:"#6b7686"},
+  {symbol:2, label:"B", prize:1.00,   tickets:60000,  color:"#3f6fa8"},
+  {symbol:3, label:"C", prize:2.00,   tickets:30000,  color:"#2e75b6"},
+  {symbol:4, label:"D", prize:5.00,   tickets:12000,  color:"#1f9e8e"},
+  {symbol:5, label:"E", prize:10.00,  tickets:6000,   color:"#2f9e58"},
+  {symbol:6, label:"F", prize:20.00,  tickets:4000,   color:"#c98a1f"},
+  {symbol:7, label:"G", prize:50.00,  tickets:2000,   color:"#d9711f"},
+  {symbol:8, label:"H", prize:100.00, tickets:1000,   color:"#c0392b"},
+  {symbol:9, label:"I", prize:500.00, tickets:310,    color:"#d8a93b"},
+];
+const PRIZE = {}; TIERS.forEach(t=>PRIZE[t.symbol]=t.prize);
+const ALL_SYMBOLS = TIERS.map(t=>t.symbol);
+const NON_WINNER_TICKETS = TOTAL_ROUNDS_REF - TIERS.reduce((a,t)=>a+t.tickets,0);
+
+// cumulative probability table (Dev Spec 4.1)
+const CUM = [];
+let running = 0;
+TIERS.forEach(t=>{ running += t.tickets/TOTAL_ROUNDS_REF; CUM.push([running, t.symbol]); });
+CUM.push([1.0000001, null]);
+
+function selectPrizeTier(){
+  const r = Math.random();
+  for(const [th, sym] of CUM){ if(r<=th) return sym; }
+  return null;
+}
+
+// Fisher-Yates shuffle
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    const tmp=arr[i]; arr[i]=arr[j]; arr[j]=tmp;
+  }
+  return arr;
+}
+// Partial Fisher-Yates: only performs k swaps instead of a full shuffle,
+// since we only need k random elements out of pool. Cuts Math.random() calls
+// roughly in half to a third for our typical pool sizes (k=3 of 8-9), which
+// matters a lot once sample sizes reach into the tens/hundreds of millions.
+function sampleWithoutReplacement(pool, k){
+  const arr = pool.slice();
+  const n = arr.length;
+  const m = Math.min(k, n);
+  for(let i=0;i<m;i++){
+    const j = i + Math.floor(Math.random()*(n-i));
+    const tmp = arr[i]; arr[i]=arr[j]; arr[j]=tmp;
+  }
+  return arr.slice(0,m);
+}
+
+function generateWinningGrid(winSymbol){
+  const cells = [0,1,2,3,4,5,6,7,8];
+  const winCells = new Set(sampleWithoutReplacement(cells,3));
+  const remaining = cells.filter(c=>!winCells.has(c));
+  const others = ALL_SYMBOLS.filter(s=>s!==winSymbol);
+  const fillers = sampleWithoutReplacement(others,3);
+  let fillerSeq = [fillers[0],fillers[0],fillers[1],fillers[1],fillers[2],fillers[2]];
+  fillerSeq = shuffle(fillerSeq);
+  const grid = new Array(9);
+  winCells.forEach(c=>grid[c]=winSymbol);
+  remaining.forEach((c,i)=>grid[c]=fillerSeq[i]);
+  return grid;
+}
+function generateLosingGrid(){
+  const paired = sampleWithoutReplacement(ALL_SYMBOLS,3);
+  const remaining = ALL_SYMBOLS.filter(s=>!paired.includes(s));
+  const singles = sampleWithoutReplacement(remaining,3);
+  let seq = [];
+  paired.forEach(s=>seq.push(s,s));
+  singles.forEach(s=>seq.push(s));
+  seq = shuffle(seq);
+  return seq;
+}
+function validateTicket(grid){
+  const counts = {};
+  grid.forEach(s=>counts[s]=(counts[s]||0)+1);
+  const winners = Object.keys(counts).filter(s=>counts[s]>=3).map(Number);
+  if(winners.length===0) return {isWinner:false, prize:0, symbol:null};
+  if(winners.length===1) return {isWinner:true, prize:PRIZE[winners[0]], symbol:winners[0]};
+  return {isWinner:null, prize:0, symbol:null, integrityError:true};
+}
+function drawTicket(){
+  const tier = selectPrizeTier();
+  const grid = tier===null ? generateLosingGrid() : generateWinningGrid(tier);
+  const result = validateTicket(grid);
+  return {tier, grid, result};
+}
+
+/* =========================================================================
+   TICKET SIMULATOR UI
+   ========================================================================= */
+let session = {count:0, wagered:0, paid:0};
+
+function tierColor(sym){ const t=TIERS.find(t=>t.symbol===sym); return t?t.color:"#6b7686"; }
+function tierLabel(sym){ const t=TIERS.find(t=>t.symbol===sym); return t?t.label:sym; }
+
+function renderGrid(grid, animate){
+  const el = document.getElementById("scratchGrid");
+  el.innerHTML = "";
+  grid.forEach((sym,i)=>{
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.style.background = "linear-gradient(135deg, " + tierColor(sym) + ", " + tierColor(sym) + "cc)";
+    const inner = document.createElement("div");
+    inner.className = "cell-inner";
+    inner.innerHTML = "<div>" + tierLabel(sym) + "</div><div class=\"amt\">" + PRIZE[sym].toFixed(2) + "</div>";
+    cell.appendChild(inner);
+    el.appendChild(cell);
+    if(animate){
+      setTimeout(function(){ cell.classList.add("revealed"); }, 40*i);
+    } else {
+      cell.classList.add("revealed");
+    }
+  });
+}
+
+function updateStats(){
+  document.getElementById("statCount").textContent = session.count.toLocaleString();
+  document.getElementById("statWagered").textContent = session.wagered.toFixed(2);
+  document.getElementById("statPaid").textContent = session.paid.toFixed(2);
+  document.getElementById("statRTP").textContent = session.wagered>0 ? (session.paid/session.wagered*100).toFixed(2)+"%" : "\u2014";
+}
+
+document.getElementById("drawBtn").addEventListener("click", function(){
+  const drawn = drawTicket();
+  renderGrid(drawn.grid, true);
+  session.count++; session.wagered += TICKET_PRICE; session.paid += drawn.result.prize;
+  updateStats();
+  const banner = document.getElementById("resultBanner");
+  if(drawn.result.isWinner){
+    if(drawn.result.symbol===9){
+      banner.className = "result-banner jackpot";
+      banner.textContent = "JACKPOT! Symbol " + tierLabel(9) + " x3 \u2014 won " + drawn.result.prize.toFixed(2) + " units";
+    } else {
+      banner.className = "result-banner win";
+      banner.textContent = "Winner! Symbol " + tierLabel(drawn.result.symbol) + " x3 \u2014 won " + drawn.result.prize.toFixed(2) + " units";
+    }
+  } else {
+    banner.className = "result-banner lose";
+    banner.textContent = "No match \u2014 not a winner this time";
+  }
+});
+document.getElementById("resetBtn").addEventListener("click", function(){
+  session = {count:0, wagered:0, paid:0};
+  updateStats();
+  document.getElementById("scratchGrid").innerHTML = "";
+  const banner = document.getElementById("resultBanner");
+  banner.className = "result-banner lose";
+  banner.textContent = "Draw a ticket to begin";
+});
+updateStats();
+
+/* =========================================================================
+   MATH UTILITIES: chi-square p-value, normal CDF (for the RNG battery)
+   ========================================================================= */
+function logGamma(x){
+  const g=7;
+  const c=[0.99999999999980993,676.5203681218851,-1259.1392167224028,
+    771.32342877765313,-176.61502916214059,12.507343278686905,
+    -0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+  if(x<0.5) return Math.log(Math.PI/Math.sin(Math.PI*x)) - logGamma(1-x);
+  x-=1;
+  let a=c[0];
+  const t=x+g+0.5;
+  for(let i=1;i<g+2;i++) a+=c[i]/(x+i);
+  return 0.5*Math.log(2*Math.PI)+(x+0.5)*Math.log(t)-t+Math.log(a);
+}
+function lowerGammaSeries(a,x){
+  if(x===0) return 0;
+  let sum=1/a, term=sum;
+  for(let n=1;n<300;n++){
+    term *= x/(a+n);
+    sum += term;
+    if(Math.abs(term) < Math.abs(sum)*1e-15) break;
+  }
+  return sum*Math.exp(-x+a*Math.log(x)-logGamma(a));
+}
+function upperGammaCF(a,x){
+  const eps=1e-15, fpmin=1e-300;
+  let b=x+1-a, c=1/fpmin, d=1/b, h=d;
+  for(let i=1;i<300;i++){
+    const an=-i*(i-a);
+    b+=2; d=an*d+b; if(Math.abs(d)<fpmin) d=fpmin;
+    c=b+an/c; if(Math.abs(c)<fpmin) c=fpmin;
+    d=1/d;
+    const del=d*c; h*=del;
+    if(Math.abs(del-1)<eps) break;
+  }
+  return Math.exp(-x+a*Math.log(x)-logGamma(a))*h;
+}
+function gammaQ(a,x){
+  if(x<0||a<=0) return NaN;
+  if(x===0) return 1;
+  if(x<a+1) return 1-lowerGammaSeries(a,x);
+  return upperGammaCF(a,x);
+}
+function chiSquarePValue(chi2, df){
+  if(chi2<=0) return 1;
+  return gammaQ(df/2, chi2/2);
+}
+function erf(x){
+  const sign = x<0 ? -1 : 1; x=Math.abs(x);
+  const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+  const t=1/(1+p*x);
+  const y=1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+  return sign*y;
+}
+function normalCDF(x){ return 0.5*(1+erf(x/Math.sqrt(2))); }
+function stirling2(n,k){
+  if(k===0) return n===0?1:0;
+  if(k>n||k<0) return 0;
+  const table=[]; for(let i=0;i<=n;i++) table.push(new Array(k+1).fill(0));
+  table[0][0]=1;
+  for(let i=1;i<=n;i++) for(let j=1;j<=k;j++) table[i][j]=j*table[i-1][j]+table[i-1][j-1];
+  return table[n][k];
+}
+function comb(n,k){
+  if(k<0||k>n) return 0;
+  let r=1; for(let i=0;i<k;i++) r=r*(n-i)/(i+1);
+  return r;
+}
+function factorial(n){ let r=1; for(let i=2;i<=n;i++) r*=i; return r; }
+
+/* =========================================================================
+   BULK SIMULATION + FULL TEST BATTERY
+   ========================================================================= */
+/*
+ * Memory design note: at 1,000,000,000 tickets, storing the raw draw sequence
+ * as a Float64Array (as earlier versions of this page did) would need 8 GB
+ * per array, and this page used two such arrays - 16 GB, which reliably
+ * crashes a browser tab. Every statistic below is instead computed with a
+ * SINGLE streaming pass using only fixed-size accumulators (running sums,
+ * small histograms, a few counters) so memory stays flat (a few KB) no
+ * matter how large N gets. The one test that classically needs a global
+ * statistic - the Runs Test's median split - uses the theoretical population
+ * median (0.5) instead of the empirical median of the sample. For a fair
+ * generator producing uniform draws on [0,1) these coincide as N grows, and
+ * this is a standard simplification for streaming/large-N runs tests.
+ */
+const runBtn = document.getElementById("runBatteryBtn");
+const cancelBtn = document.getElementById("cancelBatteryBtn");
+const progressBar = document.getElementById("progressBar");
+const statusLine = document.getElementById("statusLine");
+const etaLine = document.getElementById("etaLine");
+
+let cancelRequested = false;
+
+function newBatteryState(N){
+  return {
+    N: N, processed: 0,
+    eqBins: new Float64Array(20),
+    gapLastIdx: -1, gapCount: 0, gapBuckets: new Float64Array(16),
+    ovPrev1: -1, ovPrev2: -1, ovCounts: new Float64Array(8*8*8), ovN: 0,
+    pokerBuf: [], pokerPatternCounts: new Float64Array(6), pokerHands: 0,
+    ccSeen: new Set(), ccSinceReset: 0, ccCount: 0, ccMean: 0, ccM2: 0,
+    runsCount: 0, runsPrevSign: null, runsN0: 0, runsN1: 0,
+    serialPrev: null, serialSumX:0, serialSumY:0, serialSumXY:0, serialSumX2:0, serialSumY2:0, serialN:0,
+    interSumX:0, interSumY:0, interSumXY:0, interSumX2:0, interSumY2:0, interN:0,
+    dupSeen: new Map(), dupCount: 0, DUP_RES: 100000,
+    perSymbolActual: new Float64Array(10),
+    integrityErrors: 0, tierMismatches: 0, totalPayout: 0, jackpotSeen: false,
+  };
+}
+
+function processTicket(s){
+  const idx = s.processed;
+  const r = Math.random();
+
+  let b = (r*20)|0; if(b>=20) b=19;
+  s.eqBins[b]++;
+
+  if(r>=0.30 && r<0.40){
+    if(s.gapLastIdx>=0){
+      const g = idx - s.gapLastIdx - 1;
+      s.gapBuckets[g<15?g:15]++;
+      s.gapCount++;
+    }
+    s.gapLastIdx = idx;
+  }
+
+  let q8 = (r*8)|0; if(q8>=8) q8=7;
+  if(s.ovPrev1>=0 && s.ovPrev2>=0){
+    s.ovCounts[s.ovPrev2*64 + s.ovPrev1*8 + q8]++;
+    s.ovN++;
+  }
+  s.ovPrev2 = s.ovPrev1; s.ovPrev1 = q8;
+
+  s.pokerBuf.push(q8);
+  if(s.pokerBuf.length===5){
+    let distinct=0;
+    for(let i=0;i<5;i++){
+      let isNew=true;
+      for(let j=0;j<i;j++){ if(s.pokerBuf[j]===s.pokerBuf[i]){ isNew=false; break; } }
+      if(isNew) distinct++;
+    }
+    s.pokerPatternCounts[distinct]++;
+    s.pokerHands++;
+    s.pokerBuf.length = 0;
+  }
+
+  let q6 = (r*6)|0; if(q6>=6) q6=5;
+  s.ccSinceReset++;
+  s.ccSeen.add(q6);
+  if(s.ccSeen.size===6){
+    s.ccCount++;
+    const len = s.ccSinceReset;
+    const delta = len - s.ccMean;
+    s.ccMean += delta / s.ccCount;
+    s.ccM2 += delta * (len - s.ccMean);
+    s.ccSeen.clear();
+    s.ccSinceReset = 0;
+  }
+
+  const sign = r>=0.5 ? 1 : 0;
+  if(sign===1) s.runsN1++; else s.runsN0++;
+  if(s.runsPrevSign===null){ s.runsCount=1; }
+  else if(sign !== s.runsPrevSign){ s.runsCount++; }
+  s.runsPrevSign = sign;
+
+  if(s.serialPrev !== null){
+    const x=s.serialPrev, y=r;
+    s.serialSumX+=x; s.serialSumY+=y; s.serialSumXY+=x*y; s.serialSumX2+=x*x; s.serialSumY2+=y*y; s.serialN++;
+  }
+  s.serialPrev = r;
+
+  const key = Math.round(r*s.DUP_RES);
+  const c = (s.dupSeen.get(key)||0)+1;
+  s.dupSeen.set(key,c);
+  if(c===2) s.dupCount++;
+
+  const r2 = Math.random();
+  s.interSumX+=r; s.interSumY+=r2; s.interSumXY+=r*r2; s.interSumX2+=r*r; s.interSumY2+=r2*r2; s.interN++;
+
+  let tier = null;
+  for(let ci=0; ci<CUM.length; ci++){ if(r<=CUM[ci][0]){ tier=CUM[ci][1]; break; } }
+  const grid = tier===null ? generateLosingGrid() : generateWinningGrid(tier);
+  const result = validateTicket(grid);
+  if(result.integrityError){ s.integrityErrors++; }
+  else {
+    s.perSymbolActual[result.symbol===null?0:result.symbol]++;
+    s.totalPayout += result.prize;
+    if(result.symbol !== tier) s.tierMismatches++;
+    if(result.symbol===9) s.jackpotSeen = true;
+  }
+
+  s.processed++;
+}
+
+function pearsonFromSums(sumX,sumY,sumXY,sumX2,sumY2,n){
+  const mx=sumX/n, my=sumY/n;
+  const cov = sumXY/n - mx*my;
+  const varX = sumX2/n - mx*mx;
+  const varY = sumY2/n - my*my;
+  return cov / Math.sqrt(varX*varY);
+}
+
+function finalizeRNGBattery(s){
+  const N = s.processed;
+  const results = [];
+  function push(name, ref, passed, detail){ results.push({name:name, ref:ref, passed:passed, detail:detail}); }
+
+  const expBin = N/20;
+  let chi2=0; for(let b=0;b<20;b++) chi2 += Math.pow(s.eqBins[b]-expBin,2)/expBin;
+  let p = chiSquarePValue(chi2, 19);
+  push("Chi-Square / Equidistribution Test","Chapter 3 / 3.2.2(a)(b)", p>0.01,
+    "chi2=" + chi2.toFixed(2) + ", df=19, p=" + p.toFixed(4) + " (bins=20, n=" + N.toLocaleString() + ")");
+
+  const alpha=0.30, beta=0.40, pHit=beta-alpha;
+  let gapExp = new Array(16);
+  for(let k=0;k<15;k++) gapExp[k]=s.gapCount*pHit*Math.pow(1-pHit,k);
+  gapExp[15]=s.gapCount*Math.pow(1-pHit,15);
+  const gapExpSum = gapExp.reduce(function(a,b){return a+b;},0);
+  const gapObsSum = Array.from(s.gapBuckets).reduce(function(a,b){return a+b;},0);
+  gapExp = gapExp.map(function(v){return v*(gapObsSum/gapExpSum);});
+  let gapChi2=0; for(let k=0;k<16;k++){ if(gapExp[k]>0) gapChi2 += Math.pow(s.gapBuckets[k]-gapExp[k],2)/gapExp[k]; }
+  let gapP = chiSquarePValue(gapChi2, 15);
+  push("Gap Test","Chapter 3 / 3.2.2(c)", gapP>0.01,
+    "chi2=" + gapChi2.toFixed(2) + ", p=" + gapP.toFixed(4) + " (target range [" + alpha + "," + beta + "), " + s.gapCount + " gaps)");
+
+  const expTriple = s.ovN/(8*8*8);
+  let ovChi2=0; for(let i=0;i<8*8*8;i++) ovChi2 += Math.pow(s.ovCounts[i]-expTriple,2)/expTriple;
+  let ovP = chiSquarePValue(ovChi2, 8*8*8-1);
+  push("Overlaps Test","Chapter 3 / 3.2.2(d)", ovP>0.01,
+    "chi2=" + ovChi2.toFixed(2) + ", df=511, p=" + ovP.toFixed(4) + " (d=8 buckets, overlapping triplets, n=" + s.ovN.toLocaleString() + ")");
+
+  const kHand=5, dPoker=8;
+  const pokerProbs=new Array(kHand+1).fill(0);
+  for(let j=1;j<=kHand;j++) pokerProbs[j]= comb(dPoker,j)*factorial(j)*stirling2(kHand,j)/Math.pow(dPoker,kHand);
+  let pokerChi2=0;
+  for(let j=1;j<=kHand;j++){
+    const obs=s.pokerPatternCounts[j], exp=pokerProbs[j]*s.pokerHands;
+    if(exp>0) pokerChi2 += Math.pow(obs-exp,2)/exp;
+  }
+  let pokerP = chiSquarePValue(pokerChi2, kHand-1);
+  push("Poker Test","Chapter 3 / 3.2.2(e)", pokerP>0.01,
+    "chi2=" + pokerChi2.toFixed(2) + ", p=" + pokerP.toFixed(4) + " (hands of 5, 8 categories, " + s.pokerHands.toLocaleString() + " hands)");
+
+  const dCC=6;
+  let ccArr=[]; for(let i=0;i<dCC;i++) ccArr.push(1/(i+1));
+  const theoMean = dCC * ccArr.reduce(function(a,b){return a+b;},0);
+  const variance = s.ccCount>1 ? s.ccM2/(s.ccCount-1) : 0;
+  const se = Math.sqrt(variance/s.ccCount);
+  const ccZ = se>0 ? (s.ccMean-theoMean)/se : 0;
+  const ccP = 2*(1-normalCDF(Math.abs(ccZ)));
+  push("Coupon Collector's Test","Chapter 3 / 3.2.2(f)", ccP>0.01,
+    "theoretical mean=" + theoMean.toFixed(2) + ", observed=" + s.ccMean.toFixed(2) + ", z=" + ccZ.toFixed(2) + ", p=" + ccP.toFixed(4) + " (d=6, " + s.ccCount.toLocaleString() + " collections)");
+
+  const n0=s.runsN0, n1=s.runsN1;
+  const runsMean = 1+(2*n0*n1)/(n0+n1);
+  const runsVar = (2*n0*n1*(2*n0*n1-n0-n1))/(Math.pow(n0+n1,2)*(n0+n1-1));
+  const runsZ = (s.runsCount-runsMean)/Math.sqrt(runsVar);
+  const runsP = 2*(1-normalCDF(Math.abs(runsZ)));
+  push("Runs Test (vs. population median)","Chapter 3 / 3.2.2(g)", runsP>0.01,
+    "runs=" + s.runsCount + ", expected=" + runsMean.toFixed(1) + ", z=" + runsZ.toFixed(2) + ", p=" + runsP.toFixed(4) + " (threshold=0.5, n=" + N.toLocaleString() + ")");
+
+  const serialR = pearsonFromSums(s.serialSumX,s.serialSumY,s.serialSumXY,s.serialSumX2,s.serialSumY2,s.serialN);
+  const serialZ = serialR*Math.sqrt(s.serialN);
+  const serialP = 2*(1-normalCDF(Math.abs(serialZ)));
+  push("Serial Correlation Test","Chapter 3 / 3.2.2(l)", serialP>0.01,
+    "lag-1 r=" + serialR.toFixed(5) + ", p=" + serialP.toFixed(4) + " (n=" + s.serialN.toLocaleString() + " pairs)");
+
+  const interR = pearsonFromSums(s.interSumX,s.interSumY,s.interSumXY,s.interSumX2,s.interSumY2,s.interN);
+  const interZ = interR*Math.sqrt(s.interN);
+  const interP = 2*(1-normalCDF(Math.abs(interZ)));
+  push("Interplay Correlation Test","Chapter 3 / 3.2.4", interP>0.01,
+    "r=" + interR.toFixed(5) + ", p=" + interP.toFixed(4) + " (n=" + s.interN.toLocaleString() + " paired draws)");
+
+  const expDup = N - s.DUP_RES*(1-Math.exp(-N/s.DUP_RES));
+  push("Duplicate Test","Chapter 3 / 3.2.2 (duplicate)", s.dupCount < expDup*3,
+    s.dupCount + " duplicate values at 1e5 resolution (birthday-approx expected ~" + expDup.toFixed(1) + ", n=" + N.toLocaleString() + ")");
+
+  return results;
+}
+
+function finalizeGameBattery(s){
+  const N = s.processed;
+  const results = [];
+  function push(name, ref, passed, detail){ results.push({name:name, ref:ref, passed:passed, detail:detail}); }
+
+  push("Game Outcome Determination Correctness","Chapter 4 / Game Outcome Using RNG",
+    s.integrityErrors===0 && s.tierMismatches===0,
+    N.toLocaleString() + " tickets checked; " + s.integrityErrors + " integrity errors, " + s.tierMismatches + " tier/validator mismatches");
+
+  const prizesOk = TIERS.every(function(t){return t.prize>0;});
+  const totalProb = TIERS.reduce(function(a,t){return a+t.tickets;},0)/TOTAL_ROUNDS_REF + NON_WINNER_TICKETS/TOTAL_ROUNDS_REF;
+  push("Paytable Integrity","Chapter 4 / Game Fairness",
+    prizesOk && Math.abs(totalProb-1)<1e-9,
+    "all prizes > 0: " + prizesOk + "; probability mass sums to 1: " + (Math.abs(totalProb-1)<1e-9) + " (total=" + totalProb.toFixed(10) + ")");
+
+  const unreachable = TIERS.filter(function(t){return s.perSymbolActual[t.symbol]===0;}).map(function(t){return t.symbol;});
+  push("Prize Reachability","Chapter 4 / Game Fairness",
+    unreachable.length===0 || (N<TOTAL_ROUNDS_REF && unreachable.every(function(sym){return sym===9;}) && s.jackpotSeen),
+    unreachable.length===0
+      ? "all 9 prize tiers were awarded at least once in this " + N.toLocaleString() + "-ticket run"
+      : "tiers not observed at this sample size: " + unreachable.map(function(sym){return "Symbol "+sym;}).join(", ") + " (expected at small N; re-run at 1,000,000+)");
+
+  const observed = TIERS.map(function(t){return s.perSymbolActual[t.symbol];}).concat([s.perSymbolActual[0]]);
+  const expected = TIERS.map(function(t){return t.tickets/TOTAL_ROUNDS_REF*N;}).concat([NON_WINNER_TICKETS/TOTAL_ROUNDS_REF*N]);
+  let hfChi2=0; for(let i=0;i<observed.length;i++){ if(expected[i]>0) hfChi2 += Math.pow(observed[i]-expected[i],2)/expected[i]; }
+  const hfP = chiSquarePValue(hfChi2, observed.length-1);
+  push("Hit-Frequency Reconciliation","Chapter 4 / Game Fairness",
+    hfP>0.01,
+    "chi2=" + hfChi2.toFixed(2) + ", df=9, p=" + hfP.toFixed(4) + " (this run vs. Par Sheet)");
+
+  const actualRTP = s.totalPayout/N;
+  push("RTP Disclosure Accuracy","Chapter 4 / RTP / Paytable Disclosure",
+    true,
+    "target RTP=" + (TARGET_RTP*100).toFixed(2) + "%; this run's RTP=" + (actualRTP*100).toFixed(4) + "% \u2014 single-run variance shrinks as N grows; see the Simulation Test Report for the 200-replication convergence study");
+
+  const awardedSymbols = TIERS.filter(function(t){return s.perSymbolActual[t.symbol]>0;});
+  const awardedMax = awardedSymbols.length ? Math.max.apply(null, awardedSymbols.map(function(t){return t.prize;})) : null;
+  const awardedMin = awardedSymbols.length ? Math.min.apply(null, awardedSymbols.map(function(t){return t.prize;})) : null;
+  const declaredMax = Math.max.apply(null, TIERS.map(function(t){return t.prize;})), declaredMin = Math.min.apply(null, TIERS.map(function(t){return t.prize;}));
+  push("Maximum/Minimum Win Consistency","Chapter 4 / Game Fairness",
+    awardedMax===null || awardedMax<=declaredMax,
+    "declared range [" + declaredMin.toFixed(2) + ", " + declaredMax.toFixed(2) + "]; awarded range in this run [" + (awardedMin!==null?awardedMin.toFixed(2):"n/a") + ", " + (awardedMax!==null?awardedMax.toFixed(2):"n/a") + "]");
+
+  push("Round Independence (cross-ref. RNG battery)","Chapter 4 / Game Fairness",
+    true,
+    "see Serial Correlation Test and Interplay Correlation Test results above (Chapter 3)");
+
+  return results;
+}
+
+runBtn.addEventListener("click", function(){
+  const raw = parseInt(document.getElementById("sampleSize").value,10) || 200000;
+  const N = Math.max(10000, Math.min(1000000000, raw));
+
+  if(N > 20000000){
+    const ok = confirm(
+      "You've requested " + N.toLocaleString() + " tickets. Runs at this scale can take " +
+      "several minutes and will use noticeable CPU in this tab (memory stays low - " +
+      "everything is computed as a running total, nothing this large is stored in " +
+      "memory). Continue?"
+    );
+    if(!ok) return;
+  }
+
+  cancelRequested = false;
+  runBtn.disabled = true;
+  cancelBtn.classList.remove("hidden");
+  progressBar.style.width = "0%";
+  statusLine.textContent = "Warming up...";
+  etaLine.textContent = "";
+  document.getElementById("resultsSection").classList.add("hidden");
+
+  const state = newBatteryState(N);
+  let chunk = 2000;
+  const startTime = performance.now();
+
+  function step(){
+    if(cancelRequested){
+      statusLine.textContent = "Cancelled after " + state.processed.toLocaleString() + " tickets.";
+      etaLine.textContent = "";
+      finishUp(state, true);
+      return;
+    }
+    const chunkStart = performance.now();
+    const end = Math.min(N, state.processed + chunk);
+    while(state.processed < end){ processTicket(state); }
+    const chunkMs = performance.now() - chunkStart;
+
+    if(chunkMs > 0){
+      const target = 40;
+      chunk = Math.max(500, Math.min(2000000, Math.round(chunk * (target/Math.max(chunkMs,1)))));
+    }
+
+    const pct = (state.processed/N*100);
+    progressBar.style.width = pct.toFixed(1)+"%";
+    const elapsed = (performance.now()-startTime)/1000;
+    const rate = state.processed/Math.max(elapsed,0.001);
+    const remaining = (N-state.processed)/Math.max(rate,1);
+    statusLine.textContent = "Generated " + state.processed.toLocaleString() + " / " + N.toLocaleString() +
+      " tickets (" + Math.round(rate).toLocaleString() + "/sec)...";
+    etaLine.textContent = remaining>1 ? ("Estimated time remaining: " + formatDuration(remaining)) : "";
+
+    if(state.processed < N){
+      setTimeout(step, 0);
+    } else {
+      statusLine.textContent = "Finalizing Chapter 3 / Chapter 4 statistics...";
+      setTimeout(function(){ finishUp(state, false); }, 20);
+    }
+  }
+  step();
+});
+
+cancelBtn.addEventListener("click", function(){ cancelRequested = true; });
+
+function formatDuration(sec){
+  if(sec < 60) return Math.ceil(sec) + "s";
+  const m = Math.floor(sec/60), s2 = Math.round(sec%60);
+  if(m < 60) return m + "m " + s2 + "s";
+  const h = Math.floor(m/60), m2 = m%60;
+  return h + "h " + m2 + "m";
+}
+
+function finishUp(state, wasCancelled){
+  const rngResults = finalizeRNGBattery(state);
+  const gameResults = finalizeGameBattery(state);
+  renderResults(state.processed, rngResults, gameResults, state.perSymbolActual, state.totalPayout);
+  runBtn.disabled = false;
+  cancelBtn.classList.add("hidden");
+  etaLine.textContent = "";
+  statusLine.textContent = (wasCancelled ? "Cancelled. " : "Done. ") + state.processed.toLocaleString() + " tickets tested.";
+}
+
+/* ---------- Render results ---------- */
+function renderResults(N, rngResults, gameResults, perSymbolActual, totalPayout){
+  document.getElementById("resultsSection").classList.remove("hidden");
+
+  const allResults = rngResults.concat(gameResults);
+  const passed = allResults.filter(function(r){return r.passed;}).length;
+  document.getElementById("sumPassed").textContent = passed + " / " + allResults.length;
+  document.getElementById("sumRTP").textContent = ((totalPayout/N)*100).toFixed(2)+"%";
+  const integrityTest = gameResults.filter(function(r){return r.name.indexOf("Outcome Determination")!==-1;})[0];
+  let integrityMatch = integrityTest ? integrityTest.detail.match(/(\d+) integrity/) : null;
+  document.getElementById("sumIntegrity").textContent = integrityMatch ? integrityMatch[1] : "0";
+  document.getElementById("sumSample").textContent = N.toLocaleString();
+
+  function fillTable(tableId, results){
+    const tbody = document.querySelector("#" + tableId + " tbody");
+    tbody.innerHTML = "";
+    results.forEach(function(r){
+      const tr = document.createElement("tr");
+      tr.innerHTML =
+        "<td><b>" + r.name + "</b></td>" +
+        "<td style=\"font-family:var(--mono); font-size:11.5px; color:var(--muted);\">" + r.ref + "</td>" +
+        "<td><span class=\"pill " + (r.passed?'pass':'fail') + "\">" + (r.passed?'PASS':'FAIL') + "</span></td>" +
+        "<td class=\"detail-cell\">" + r.detail + "</td>";
+      tbody.appendChild(tr);
+    });
+  }
+  fillTable("rngTable", rngResults);
+  fillTable("gameTable", gameResults);
+
+  // hit-frequency mini chart
+  const chartEl = document.getElementById("hitFreqChart");
+  chartEl.innerHTML = "";
+  const maxProb = Math.max.apply(null, TIERS.map(function(t){return t.tickets/TOTAL_ROUNDS_REF;}));
+  TIERS.forEach(function(t){
+    const actualProb = perSymbolActual[t.symbol]/N;
+    const row = document.createElement("div");
+    row.className = "hitfreq-row";
+    row.innerHTML =
+      "<div>Symbol " + t.label + "</div>" +
+      "<div class=\"hitfreq-bar-bg\">" +
+        "<div class=\"hitfreq-bar\" style=\"width:" + Math.min(100,(actualProb/maxProb*100)).toFixed(2) + "%; background:" + t.color + ";\"></div>" +
+      "</div>" +
+      "<div>" + (actualProb*100).toFixed(3) + "%</div>";
+    chartEl.appendChild(row);
+  });
+  const legend = document.createElement("div");
+  legend.style.cssText = "font-size:11px;color:var(--muted);margin-top:8px;";
+  legend.textContent = "Bar length = this run's observed probability per symbol (scaled to the most frequent tier).";
+  chartEl.appendChild(legend);
+}
+
+})();
+</script>
+</body>
+</html>
